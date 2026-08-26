@@ -406,4 +406,46 @@ async function sync(manual){
   const btn = document.getElementById('btn-sync'); btn.textContent = 'Envoi en cours…';
   try {
     const pending = queue.filter(r => !r.erreur);
-    for (let i = 0; i < pending.length; i += 5) {
+    for (let i = 0; i < pending.length; i += 5) {              // lots de 5 pour limiter la taille (photos)
+      const lot = pending.slice(i, i + 5);
+      const res = await apiPost({action:'lot', releves: lot});
+      if (!res.ok) throw new Error(res.erreur || 'ERREUR');
+      res.resultats.forEach(x => {
+        const item = queue.find(q => q.releve_id === x.releve_id);
+        if (!item) return;
+        if (x.ok) {
+          queue = queue.filter(q => q.releve_id !== x.releve_id);
+          history.unshift({machine_id:item.machine_id, compteur:item.compteur, horodatage:item.horodatage, statut:x.statut || 'OK', delta: x.delta != null ? x.delta : '—'});
+        } else {
+          item.erreur = x.erreur;
+        }
+      });
+    }
+    history = history.slice(0, 50);
+    LS.set('queue', queue); LS.set('history', history);
+    toast(queue.length ? queue.length + ' relevé(s) en erreur' : 'Tout est envoyé', queue.length ? 'red' : 'green');
+  } catch(e){
+    toast('Envoi impossible : ' + e.message, 'red');
+  } finally {
+    syncing = false; btn.textContent = 'Synchroniser maintenant';
+    if (document.getElementById('s-home').classList.contains('on')) renderHome();
+  }
+}
+window.addEventListener('online',  () => { renderHome(); sync(false); });
+window.addEventListener('offline', () => renderHome());
+
+/* ========= UTILITAIRES ========= */
+function uuid(){ return (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&3|8)).toString(16); })); }
+function localISO(){ const d = new Date(); const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+function fmtH(v){ const n = Number(v); return isFinite(n) ? n.toLocaleString('fr-FR') : '—'; }
+function fmtDate(s){ if (!s) return ''; const d = new Date(s); return isNaN(d) ? String(s).slice(0,16) : d.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'}) + ' ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}); }
+function libErreur(e){ return {COMPTEUR_INFERIEUR:'inférieur au précédent', MACHINE_INCONNUE:'machine inconnue', MACHINE_INACTIVE:'machine inactive', COMPTEUR_INVALIDE:'valeur invalide', CLE_INVALIDE:'clé refusée'}[e] || e; }
+
+/* ========= DÉMARRAGE ========= */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+if (!cfg) show('s-config');
+else if (!user) show('s-login');
+else { show('s-home'); refreshMachines(false); sync(false); }
+</script>
+</body>
+</html>
