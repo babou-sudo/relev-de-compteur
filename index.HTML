@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Relevé compteurs</title>
+<meta name="theme-color" content="#F26A1B">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --paper:#F4F6F3; --ink:#0E1B2A; --ink2:#4A5866; --line:#D3D9D6;
+    --orange:#F26A1B; --green:#1F8A4C; --red:#C6262E; --meter:#111820;
+    --tap:56px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--paper);color:var(--ink);font-family:Barlow,system-ui,sans-serif;font-size:17px;line-height:1.4;-webkit-tap-highlight-color:transparent}
+  h1,h2,.big{font-family:"Barlow Condensed",system-ui,sans-serif;font-weight:700;letter-spacing:.01em}
+  h1{font-size:30px;line-height:1.05}
+  h2{font-size:22px;color:var(--ink2);text-transform:uppercase;letter-spacing:.06em;font-size:15px}
+  .screen{display:none;min-height:100%;padding:20px 18px 40px;padding-top:calc(20px + env(safe-area-inset-top))}
+  .screen.on{display:block}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+  .who{font-size:14px;color:var(--ink2)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--red);margin-right:6px;vertical-align:middle}
+  .dot.on{background:var(--green)}
+  label{display:block;font-size:14px;color:var(--ink2);margin:14px 0 6px;font-weight:600}
+  input,textarea{width:100%;min-height:var(--tap);border:2px solid var(--line);border-radius:10px;background:#fff;padding:12px 14px;font:inherit;color:var(--ink)}
+  input:focus,textarea:focus{outline:none;border-color:var(--orange)}
+  textarea{min-height:80px;resize:vertical}
+  .btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:var(--tap);border:0;border-radius:12px;background:var(--ink);color:#fff;font:inherit;font-weight:600;font-size:18px;margin-top:12px;cursor:pointer}
+  .btn.primary{background:var(--orange);min-height:72px;font-size:22px;font-family:"Barlow Condensed";text-transform:uppercase;letter-spacing:.04em}
+  .btn.ghost{background:#fff;color:var(--ink);border:2px solid var(--line)}
+  .btn.danger{background:var(--red)}
+  .btn:disabled{opacity:.4}
+  .btn:focus-visible,input:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
+  .row{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .muted{color:var(--ink2);font-size:14px}
+  .tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .tag.ok{background:#E3F3E9;color:var(--green)}
+  .tag.alerte{background:#FDEBDD;color:var(--orange)}
+  .tag.err{background:#FBE3E4;color:var(--red)}
+  .tag.wait{background:#EEF1EF;color:var(--ink2)}
+  /* Compteur type odomètre */
+  .meter{background:var(--meter);border-radius:14px;padding:14px 16px;margin-top:14px;color:#F4F6F3}
+  .meter .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:#9AA6B2}
+  .meter .val{font-family:"Barlow Condensed";font-size:52px;font-weight:700;letter-spacing:.06em;font-variant-numeric:tabular-nums;line-height:1.1}
+  .meter input{background:#1B2531;border-color:#2B3948;color:#fff;font-family:"Barlow Condensed";font-size:52px;font-weight:700;letter-spacing:.06em;min-height:76px;padding:6px 14px;margin-top:6px}
+  .meter input:focus{border-color:var(--orange)}
+  .delta{margin-top:10px;font-size:16px;color:#9AA6B2}
+  .delta strong{color:#fff;font-size:20px}
+  .delta.bad strong{color:#FF6B6B}
+  .delta.warn strong{color:#FFB347}
+  #reader{width:100%;border-radius:14px;overflow:hidden;background:#000;min-height:280px}
+  .msg{margin-top:12px;padding:12px 14px;border-radius:10px;font-size:15px;display:none}
+  .msg.err{display:block;background:#FBE3E4;color:var(--red)}
+  .msg.warn{display:block;background:#FDEBDD;color:#9A4100}
+  .msg.ok{display:block;background:#E3F3E9;color:var(--green)}
+  .list .card{padding:12px 14px}
+  .photo-prev{width:100%;border-radius:10px;margin-top:8px;display:none}
+  .toast{position:fixed;left:16px;right:16px;bottom:24px;background:var(--ink);color:#fff;padding:14px 16px;border-radius:12px;font-weight:600;transform:translateY(120%);transition:transform .25s;z-index:9}
+  .toast.show{transform:none}
+  .toast.green{background:var(--green)}
+  .toast.red{background:var(--red)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid2 .btn{margin-top:0}
+  @media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+
+<!-- ÉCRAN RÉGLAGES -->
+<section id="s-config" class="screen">
+  <h1>Réglages</h1>
+  <p class="muted" style="margin-top:6px">À faire une seule fois par téléphone.</p>
+  <label>URL du serveur (finit par /exec)</label>
+  <input id="cfg-url" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+  <label>Clé</label>
+  <input id="cfg-key" type="text" autocapitalize="off" autocorrect="off">
+  <div class="msg" id="cfg-msg"></div>
+  <button class="btn primary" onclick="saveConfig()">Tester et enregistrer</button>
+</section>
+
+<!-- ÉCRAN CONNEXION -->
+<section id="s-login" class="screen">
+  <h1>Relevé compteurs</h1>
+  <p class="muted" style="margin-top:6px">Connexion technicien</p>
+  <label>Nom</label>
+  <input id="lg-nom" type="text" autocapitalize="words">
+  <label>PIN</label>
+  <input id="lg-pin" type="password" inputmode="numeric">
+  <div class="msg" id="lg-msg"></div>
+  <button class="btn primary" onclick="login()">Se connecter</button>
+  <button class="btn ghost" onclick="show('s-config')">Réglages</button>
+</section>
+
+<!-- ÉCRAN ACCUEIL -->
+<section id="s-home" class="screen">
+  <div class="top">
+    <h1>Relevés</h1>
+    <div class="who"><span class="dot" id="net-dot"></span><span id="who"></span></div>
+  </div>
+  <button class="btn primary" onclick="startScan()">Scanner une machine</button>
+  <button class="btn ghost" onclick="manualOpen()">Saisir le n° de machine</button>
+
+  <div class="card">
+    <div class="row"><h2>En attente d'envoi</h2><span class="tag wait" id="q-count">0</span></div>
+    <div class="list" id="q-list"></div>
+    <button class="btn" id="btn-sync" onclick="sync(true)">Synchroniser maintenant</button>
+  </div>
+
+  <div class="card">
+    <div class="row"><h2>Envoyés aujourd'hui</h2><span class="tag ok" id="h-count">0</span></div>
+    <div class="list" id="h-list"></div>
+  </div>
+
+  <div class="grid2" style="margin-top:14px">
+    <button class="btn ghost" onclick="loadMissing()">Machines manquantes</button>
+    <button class="btn ghost" onclick="refreshMachines(true)">Actualiser le parc</button>
+  </div>
+  <div class="list" id="miss-list"></div>
+  <button class="btn ghost" style="margin-top:24px" onclick="logout()">Se déconnecter</button>
+</section>
+
+<!-- ÉCRAN SCAN -->
+<section id="s-scan" class="screen">
+  <div class="top"><h1>Scanner</h1><button class="btn ghost" style="width:auto;margin:0;padding:0 16px" onclick="stopScan()">Annuler</button></div>
+  <div id="reader"></div>
+  <p class="muted" style="margin-top:10px">Vise le QR code collé sur la machine.</p>
+</section>
+
+<!-- ÉCRAN SAISIE -->
+<section id="s-saisie" class="screen">
+  <div class="top"><h1 id="m-id">RS-001</h1><button class="btn ghost" style="width:auto;margin:0;padding:0 16px" onclick="show('s-home')">Retour</button></div>
+  <div class="card">
+    <div id="m-des" style="font-weight:600"></div>
+    <div class="muted" id="m-sub"></div>
+  </div>
+  <div class="meter">
+    <div class="lbl">Dernier relevé</div>
+    <div class="val" id="m-last">—</div>
+    <div class="lbl" style="margin-top:10px">Compteur lu aujourd'hui (heures)</div>
+    <input id="m-val" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" oninput="onValInput()">
+    <div class="delta" id="m-delta">Écart : <strong>—</strong></div>
+  </div>
+  <div class="msg" id="m-msg"></div>
+
+  <label>Photo du compteur (facultatif)</label>
+  <input id="m-photo" type="file" accept="image/*" capture="environment" onchange="onPhoto(this)">
+  <img class="photo-prev" id="m-prev" alt="">
+  <div class="muted" id="m-psize"></div>
+
+  <label>Commentaire (facultatif)</label>
+  <textarea id="m-com" placeholder="Ex : compteur illisible, machine à l'atelier…"></textarea>
+
+  <button class="btn primary" id="btn-save" onclick="saveReleve()" disabled>Enregistrer le relevé</button>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ========= ÉTAT & STOCKAGE LOCAL ========= */
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+let cfg      = LS.get('cfg', null);       // {url,key}
+let user     = LS.get('user', null);      // {nom,role}
+let machines = LS.get('machines', []);    // cache du parc
+let queue    = LS.get('queue', []);       // relevés non envoyés
+let history  = LS.get('history', []);     // relevés envoyés (50 derniers)
+let current  = null;                      // machine en cours de saisie
+let photoB64 = '';
+let scanner  = null;
+const DELTA_MAX = 168;
+
+/* ========= API ========= */
+async function apiGet(params){
+  const u = new URL(cfg.url);
+  Object.entries(Object.assign({}, params, {key: cfg.key})).forEach(([k,v]) => u.searchParams.set(k, v));
+  const r = await fetch(u.toString(), {redirect:'follow'});
+  return r.json();
+}
+async function apiPost(body){
+  const r = await fetch(cfg.url, {
+    method:'POST', redirect:'follow',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},   // évite le preflight CORS avec Apps Script
+    body: JSON.stringify(Object.assign({}, body, {key: cfg.key}))
+  });
+  return r.json();
+}
+
+/* ========= NAVIGATION ========= */
+function show(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  window.scrollTo(0,0);
+  if (id === 's-home') renderHome();
+}
+function msg(id, text, type){
+  const el = document.getElementById(id);
+  el.className = 'msg' + (text ? ' ' + type : '');
+  el.textContent = text || '';
+}
+let toastT;
+function toast(text, color){
+  const t = document.getElementById('toast');
+  t.textContent = text; t.className = 'toast show ' + (color || '');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ========= RÉGLAGES ========= */
+async function saveConfig(){
+  const url = document.getElementById('cfg-url').value.trim();
+  const key = document.getElementById('cfg-key').value.trim();
+  if (!url.endsWith('/exec')) return msg('cfg-msg', "L'URL doit se terminer par /exec.", 'err');
+  cfg = {url, key};
+  msg('cfg-msg', 'Test de connexion…', 'warn');
+  try {
+    const r = await apiGet({action:'ping'});
+    if (!r.ok) return msg('cfg-msg', r.erreur === 'CLE_INVALIDE' ? 'Clé refusée par le serveur.' : 'Erreur : ' + r.erreur, 'err');
+    LS.set('cfg', cfg);
+    msg('cfg-msg', 'Serveur joignable.', 'ok');
+    setTimeout(() => show('s-login'), 600);
+  } catch(e){
+    msg('cfg-msg', 'Serveur injoignable. Vérifie l’URL et le réseau.', 'err');
+  }
+}
+
+/* ========= CONNEXION ========= */
+async function login(){
+  const nom = document.getElementById('lg-nom').value.trim();
+  const pin = document.getElementById('lg-pin').value.trim();
+  if (!nom || !pin) return msg('lg-msg', 'Nom et PIN obligatoires.', 'err');
+  msg('lg-msg', 'Connexion…', 'warn');
+  try {
+    const r = await apiGet({action:'login', nom, pin});
+    if (!r.ok) return msg('lg-msg', 'Nom ou PIN incorrect.', 'err');
+    user = {nom: r.nom, role: r.role}; LS.set('user', user);
+    msg('lg-msg', '', '');
+    await refreshMachines(false);
+    show('s-home');
+  } catch(e){
+    // Hors ligne : on accepte un utilisateur déjà connu sur ce téléphone
+    if (user && user.nom.toLowerCase() === nom.toLowerCase()) { show('s-home'); }
+    else msg('lg-msg', 'Pas de réseau : première connexion impossible.', 'err');
+  }
+}
+function logout(){ user = null; LS.del('user'); show('s-login'); }
+
+async function refreshMachines(notify){
+  try {
+    const r = await apiGet({action:'machines'});
+    if (r.ok) { machines = r.machines; LS.set('machines', machines); if (notify) toast(machines.length + ' machines chargées', 'green'); }
+  } catch(e){ if (notify) toast('Hors ligne : parc non actualisé', 'red'); }
+}
+
+/* ========= ACCUEIL ========= */
+function renderHome(){
+  document.getElementById('who').textContent = user ? user.nom : '';
+  document.getElementById('net-dot').className = 'dot' + (navigator.onLine ? ' on' : '');
+  document.getElementById('q-count').textContent = queue.length;
+  document.getElementById('btn-sync').disabled = queue.length === 0;
+  document.getElementById('q-list').innerHTML = queue.length ? queue.map(r => `
+    <div class="card">
+      <div class="row"><strong>${r.machine_id}</strong><span>${fmtH(r.compteur)} h</span></div>
+      <div class="row"><span class="muted">${fmtDate(r.horodatage)}</span>
+        ${r.erreur ? `<span class="tag err">${libErreur(r.erreur)}</span>` : '<span class="tag wait">en attente</span>'}</div>
+      ${r.erreur ? `<button class="btn danger" style="min-height:44px;font-size:15px" onclick="dropQueued('${r.releve_id}')">Supprimer ce relevé</button>` : ''}
+    </div>`).join('') : '<p class="muted">Aucun relevé en attente.</p>';
+
+  const today = new Date().toISOString().slice(0,10);
+  const h = history.filter(r => (r.horodatage || '').startsWith(today));
+  document.getElementById('h-count').textContent = h.length;
+  document.getElementById('h-list').innerHTML = h.length ? h.map(r => `
+    <div class="card"><div class="row"><strong>${r.machine_id}</strong><span>${fmtH(r.compteur)} h <span class="tag ${r.statut === 'ALERTE' ? 'alerte' : 'ok'}">${r.statut}</span></span></div>
+    <div class="muted">Écart ${r.delta} h · ${fmtDate(r.horodatage)}</div></div>`).join('') : '<p class="muted">Rien d’envoyé aujourd’hui.</p>';
+}
+function dropQueued(id){ queue = queue.filter(r => r.releve_id !== id); LS.set('queue', queue); renderHome(); }
+
+async function loadMissing(){
+  const box = document.getElementById('miss-list');
+  box.innerHTML = '<p class="muted">Chargement…</p>';
+  try {
+    const r = await apiGet({action:'manquantes', jours:7});
+    const done = new Set(queue.map(q => q.machine_id));
+    const list = r.machines.filter(m => !done.has(m.machine_id));
+    box.innerHTML = list.length ? `<div class="card"><h2>Non relevées depuis 7 jours (${list.length})</h2>` +
+      list.map(m => `<div class="row" style="margin-top:8px"><strong>${m.machine_id}</strong><span class="muted">${m.zone || ''}</span></div>`).join('') + '</div>'
+      : '<p class="muted" style="margin-top:10px">Toutes les machines sont relevées.</p>';
+  } catch(e){ box.innerHTML = '<p class="muted">Hors ligne.</p>'; }
+}
+
+/* ========= SCAN ========= */
+function startScan(){
+  show('s-scan');
+  scanner = new Html5Qrcode('reader');
+  scanner.start({facingMode:'environment'}, {fps:10, qrbox:{width:240, height:240}},
+    txt => { stopScan(); openMachine(txt.trim()); },
+    () => {});
+}
+function stopScan(){
+  if (scanner) { scanner.stop().catch(()=>{}); scanner = null; }
+  if (document.getElementById('s-scan').classList.contains('on')) show('s-home');
+}
+function manualOpen(){
+  const id = prompt('Numéro de la machine (ex : RS-001)');
+  if (id) openMachine(id.trim().toUpperCase());
+}
+
+/* ========= SAISIE ========= */
+async function openMachine(id){
+  let m = machines.find(x => x.machine_id === id);
+  if (!m) {
+    try { const r = await apiGet({action:'machine', id}); if (r.ok) { m = r.machine; machines.push(m); LS.set('machines', machines); } }
+    catch(e){}
+  }
+  if (!m) return toast('Machine ' + id + ' inconnue', 'red');
+  current = m; photoB64 = '';
+  document.getElementById('m-id').textContent = m.machine_id;
+  document.getElementById('m-des').textContent = m.designation || '';
+  document.getElementById('m-sub').textContent = [m.marque, m.modele, m.zone].filter(Boolean).join(' · ');
+  document.getElementById('m-last').textContent = fmtH(m.dernier_compteur) + ' h' + (m.dernier_releve ? '  ·  ' + fmtDate(m.dernier_releve) : '');
+  document.getElementById('m-val').value = '';
+  document.getElementById('m-com').value = '';
+  document.getElementById('m-photo').value = '';
+  document.getElementById('m-prev').style.display = 'none';
+  document.getElementById('m-psize').textContent = '';
+  msg('m-msg', '', '');
+  onValInput();
+  show('s-saisie');
+  setTimeout(() => document.getElementById('m-val').focus(), 200);
+}
+
+function onValInput(){
+  const inp = document.getElementById('m-val');
+  inp.value = inp.value.replace(/[^\d]/g, '');
+  const v = Number(inp.value);
+  const last = Number(current && current.dernier_compteur) || 0;
+  const d = document.getElementById('m-delta');
+  const btn = document.getElementById('btn-save');
+  if (!inp.value) { d.className = 'delta'; d.innerHTML = 'Écart : <strong>—</strong>'; btn.disabled = true; msg('m-msg','',''); return; }
+  const delta = v - last;
+  if (delta < 0) {
+    d.className = 'delta bad'; d.innerHTML = `Écart : <strong>${delta} h</strong>`;
+    msg('m-msg', `Valeur inférieure au dernier relevé (${fmtH(last)} h). Vérifie la lecture ou la machine.`, 'err');
+    btn.disabled = true;
+  } else if (delta > DELTA_MAX) {
+    d.className = 'delta warn'; d.innerHTML = `Écart : <strong>+${delta} h</strong>`;
+    msg('m-msg', `Écart supérieur à ${DELTA_MAX} h en une semaine : le relevé sera marqué ALERTE. Ajoute une photo ou un commentaire.`, 'warn');
+    btn.disabled = false;
+  } else {
+    d.className = 'delta'; d.innerHTML = `Écart : <strong>+${delta} h</strong>`;
+    msg('m-msg', '', ''); btn.disabled = false;
+  }
+}
+
+function onPhoto(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    const MAX = 1024;
+    const k = Math.min(1, MAX / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    photoB64 = c.toDataURL('image/jpeg', 0.55);
+    const prev = document.getElementById('m-prev'); prev.src = photoB64; prev.style.display = 'block';
+    document.getElementById('m-psize').textContent = 'Photo compressée : ' + Math.round(photoB64.length * 0.75 / 1024) + ' Ko';
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+function saveReleve(){
+  const compteur = Number(document.getElementById('m-val').value);
+  const r = {
+    releve_id: uuid(),
+    horodatage: localISO(),
+    machine_id: current.machine_id,
+    compteur,
+    technicien: user.nom,
+    commentaire: document.getElementById('m-com').value.trim(),
+    photo_base64: photoB64
+  };
+  queue.push(r); LS.set('queue', queue);
+  // Mise à jour locale : le prochain scan de cette machine part de cette valeur
+  current.dernier_compteur = compteur; current.dernier_releve = r.horodatage; LS.set('machines', machines);
+  show('s-home');
+  toast('Relevé enregistré', 'green');
+  sync(false);
+}
+
+/* ========= SYNCHRONISATION ========= */
+let syncing = false;
+async function sync(manual){
+  if (syncing || !queue.length) return;
+  if (!navigator.onLine) { if (manual) toast('Pas de réseau, envoi différé', 'red'); return; }
+  syncing = true;
+  const btn = document.getElementById('btn-sync'); btn.textContent = 'Envoi en cours…';
+  try {
+    const pending = queue.filter(r => !r.erreur);
+    for (let i = 0; i < pending.length; i += 5) {
