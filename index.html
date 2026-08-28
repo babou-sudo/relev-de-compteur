@@ -79,6 +79,7 @@
   .sp-bar{width:200px;height:5px;border-radius:99px;background:rgba(255,255,255,.28);overflow:hidden}
   .sp-bar i{display:block;height:100%;width:0;border-radius:99px;background:#fff;transition:width .25s linear}
   .sp-net{font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+  <div class="sp-net" style="opacity:.5">v3.2</div>
 </style>
 </head>
 <body>
@@ -356,21 +357,34 @@ function onValInput(){
   const v = Number(inp.value);
   const last = Number(current && current.dernier_compteur) || 0;
   const d = document.getElementById('m-delta');
-  const btn = document.getElementById('btn-save');
-  if (!inp.value) { d.className = 'delta'; d.innerHTML = 'Écart : <strong>—</strong>'; btn.disabled = true; msg('m-msg','',''); return; }
-  const delta = v - last;
-  if (delta < 0) {
-    d.className = 'delta bad'; d.innerHTML = `Écart : <strong>${delta} h</strong>`;
+
+  if (!inp.value) {
+    d.className = 'delta'; d.innerHTML = 'Écart : <strong>—</strong>';
+    msg('m-msg', '', '');
+  } else if (v < last) {
+    d.className = 'delta bad'; d.innerHTML = `Écart : <strong>${v - last} h</strong>`;
     msg('m-msg', `Valeur inférieure au dernier relevé (${fmtH(last)} h). Vérifie la lecture ou la machine.`, 'err');
-    btn.disabled = true;
-  } else if (delta > DELTA_MAX) {
-   d.className = 'delta'; d.innerHTML = `Écart : <strong>+${delta} h</strong>`;
-    msg('m-msg', photoB64 ? '' : 'Photo du compteur obligatoire avant enregistrement.', 'warn');
-    btn.disabled = false;
   } else {
-    d.className = 'delta'; d.innerHTML = `Écart : <strong>+${delta} h</strong>`;
-    msg('m-msg', '', ''); btn.disabled = false;
+    d.className = 'delta'; d.innerHTML = `Écart : <strong>+${v - last} h</strong>`;
+    msg('m-msg', '', '');
   }
+  majBouton();
+}
+
+/* Seul endroit qui décide si le bouton est actif */
+function majBouton(){
+  const inp  = document.getElementById('m-val');
+  const btn  = document.getElementById('btn-save');
+  const v    = Number(inp.value);
+  const last = Number(current && current.dernier_compteur) || 0;
+
+  const okValeur = inp.value !== '' && v >= last;
+  const okPhoto  = !!photoB64;
+
+  btn.disabled = !(okValeur && okPhoto);
+  btn.textContent = !okValeur ? 'Saisir le compteur'
+                  : !okPhoto  ? 'Photo du compteur requise'
+                  : 'Enregistrer le relevé';
 }
 
 function onPhoto(input){
@@ -387,11 +401,15 @@ function onPhoto(input){
     const prev = document.getElementById('m-prev'); prev.src = photoB64; prev.style.display = 'block';
     document.getElementById('m-psize').textContent = 'Photo compressée : ' + Math.round(photoB64.length * 0.75 / 1024) + ' Ko';
     URL.revokeObjectURL(img.src);
+        majBouton();
   };
   img.src = URL.createObjectURL(file);
 }
 
 function saveReleve(){
+  function saveReleve(){
+  if (!photoB64 || !document.getElementById('m-val').value) return;
+  const compteur = Number(document.getElementById('m-val').value);
   const compteur = Number(document.getElementById('m-val').value);
   const r = {
     releve_id: uuid(),
