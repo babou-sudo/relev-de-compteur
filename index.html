@@ -12,8 +12,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 <style>
   :root{
-    --paper:#F4F6F3; --ink:#0E1B2A; --ink2:#4A5866; --line:#D3D9D6;
-    --orange:#F26A1B; --green:#1F8A4C; --red:#C6262E; --meter:#111820;
+    --paper:#F2F3FB; --ink:#1B1D3A; --ink2#5B5F86; --line:#D9DBF2;
+    --orange:#787EF8; --green:#7ABF4B; --red:#C6262E; --meter:#2A2D5C;
     --tap:56px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -35,7 +35,7 @@
   .btn.primary{background:var(--orange);min-height:72px;font-size:22px;font-family:"Barlow Condensed";text-transform:uppercase;letter-spacing:.04em}
   .btn.ghost{background:#fff;color:var(--ink);border:2px solid var(--line)}
   .btn.danger{background:var(--red)}
-  .btn:disabled{opacity:.4}
+  .btn:disabled{background:#C9CBE0;color:#7C7F9C;opacity:1;cursor:not-allowed;pointer-events:none;box-shadow:none}
   .btn:focus-visible,input:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
   .row{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
@@ -69,10 +69,24 @@
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .grid2 .btn{margin-top:0}
   @media (prefers-reduced-motion:reduce){.toast{transition:none}}
+  #splash{position:fixed;inset:0;z-index:9999;background:#787EF8;color:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;
+    transition:opacity .35s ease}
+  #splash.off{opacity:0;pointer-events:none}
+  .sp-logo{font-family:"Barlow Condensed",system-ui,sans-serif;font-weight:700;
+    font-size:46px;line-height:.95;text-align:center;text-transform:uppercase;letter-spacing:.02em}
+  .sp-logo span{color:#7ABF4B}
+  .sp-bar{width:200px;height:5px;border-radius:99px;background:rgba(255,255,255,.28);overflow:hidden}
+  .sp-bar i{display:block;height:100%;width:0;border-radius:99px;background:#fff;transition:width .25s linear}
+  .sp-net{font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
 </style>
 </head>
 <body>
-
+<div id="splash">
+  <div class="sp-logo">Relevé<br><span>compteurs</span></div>
+  <div class="sp-bar"><i id="sp-fill"></i></div>
+  <div class="sp-net" id="sp-net">Connexion…</div>
+</div>
 <!-- ÉCRAN RÉGLAGES -->
 <section id="s-config" class="screen">
   <h1>Réglages</h1>
@@ -350,8 +364,8 @@ function onValInput(){
     msg('m-msg', `Valeur inférieure au dernier relevé (${fmtH(last)} h). Vérifie la lecture ou la machine.`, 'err');
     btn.disabled = true;
   } else if (delta > DELTA_MAX) {
-    d.className = 'delta warn'; d.innerHTML = `Écart : <strong>+${delta} h</strong>`;
-    msg('m-msg', `Écart supérieur à ${DELTA_MAX} h en une semaine : le relevé sera marqué ALERTE. Ajoute une photo ou un commentaire.`, 'warn');
+   d.className = 'delta'; d.innerHTML = `Écart : <strong>+${delta} h</strong>`;
+    msg('m-msg', photoB64 ? '' : 'Photo du compteur obligatoire avant enregistrement.', 'warn');
     btn.disabled = false;
   } else {
     d.className = 'delta'; d.innerHTML = `Écart : <strong>+${delta} h</strong>`;
@@ -445,6 +459,26 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
 if (!cfg) show('s-config');
 else if (!user) show('s-login');
 else { show('s-home'); refreshMachines(false); sync(false); }
+  /* ========= SPLASH : barre pilotée par la vitesse réelle ========= */
+(function(){
+  const el = document.getElementById('splash');
+  const fill = document.getElementById('sp-fill');
+  const net = document.getElementById('sp-net');
+  const c = navigator.connection || {};
+  const mbps = Number(c.downlink) || 0;
+  const type = c.effectiveType || '';
+  net.textContent = !navigator.onLine ? 'Hors ligne — mode local'
+                  : mbps ? mbps.toFixed(1) + ' Mb/s · ' + type.toUpperCase()
+                  : 'Connexion…';
+  // Plus la liaison est lente, plus la barre monte lentement : 0,5 s à 3 s
+  const duree = !navigator.onLine ? 600 : Math.min(3000, Math.max(500, 2400 / Math.max(mbps, 0.3)));
+  const t0 = Date.now();
+  const it = setInterval(() => {
+    const p = Math.min(1, (Date.now() - t0) / duree);
+    fill.style.width = (p * 100).toFixed(0) + '%';
+    if (p >= 1) { clearInterval(it); el.classList.add('off'); setTimeout(()=>el.remove(), 400); }
+  }, 60);
+})();
 </script>
 </body>
 </html>
