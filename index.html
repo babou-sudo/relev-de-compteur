@@ -371,20 +371,16 @@ function onValInput(){
   majBouton();
 }
 
-/* Seul endroit qui décide si le bouton est actif */
 function majBouton(){
-  const inp  = document.getElementById('m-val');
-  const btn  = document.getElementById('btn-save');
-  const v    = Number(inp.value);
+  const inp = document.getElementById('m-val');
+  const btn = document.getElementById('btn-save');
+  if (!inp || !btn) return;
+  const v = Number(inp.value);
   const last = Number(current && current.dernier_compteur) || 0;
-
   const okValeur = inp.value !== '' && v >= last;
-  const okPhoto  = !!photoB64;
-
+  const okPhoto = !!photoB64;
   btn.disabled = !(okValeur && okPhoto);
-  btn.textContent = !okValeur ? 'Saisir le compteur'
-                  : !okPhoto  ? 'Photo du compteur requise'
-                  : 'Enregistrer le relevé';
+  btn.textContent = !okValeur ? 'Saisir le compteur' : (!okPhoto ? 'Photo du compteur requise' : 'Enregistrer le relevé');
 }
 
 function onPhoto(input){
@@ -401,15 +397,13 @@ function onPhoto(input){
     const prev = document.getElementById('m-prev'); prev.src = photoB64; prev.style.display = 'block';
     document.getElementById('m-psize').textContent = 'Photo compressée : ' + Math.round(photoB64.length * 0.75 / 1024) + ' Ko';
     URL.revokeObjectURL(img.src);
-        majBouton();
+    majBouton();
   };
   img.src = URL.createObjectURL(file);
 }
 
 function saveReleve(){
-  function saveReleve(){
   if (!photoB64 || !document.getElementById('m-val').value) return;
-  const compteur = Number(document.getElementById('m-val').value);
   const compteur = Number(document.getElementById('m-val').value);
   const r = {
     releve_id: uuid(),
@@ -421,13 +415,11 @@ function saveReleve(){
     photo_base64: photoB64
   };
   queue.push(r); LS.set('queue', queue);
-  // Mise à jour locale : le prochain scan de cette machine part de cette valeur
   current.dernier_compteur = compteur; current.dernier_releve = r.horodatage; LS.set('machines', machines);
   show('s-home');
   toast('Relevé enregistré', 'green');
   sync(false);
 }
-
 /* ========= SYNCHRONISATION ========= */
 let syncing = false;
 async function sync(manual){
@@ -478,24 +470,29 @@ if (!cfg) show('s-config');
 else if (!user) show('s-login');
 else { show('s-home'); refreshMachines(false); sync(false); }
   /* ========= SPLASH : barre pilotée par la vitesse réelle ========= */
+
+</script>
+  <script>
 (function(){
   const el = document.getElementById('splash');
-  const fill = document.getElementById('sp-fill');
-  const net = document.getElementById('sp-net');
-  const c = navigator.connection || {};
-  const mbps = Number(c.downlink) || 0;
-  const type = c.effectiveType || '';
-  net.textContent = !navigator.onLine ? 'Hors ligne — mode local'
-                  : mbps ? mbps.toFixed(1) + ' Mb/s · ' + type.toUpperCase()
-                  : 'Connexion…';
-  // Plus la liaison est lente, plus la barre monte lentement : 0,5 s à 3 s
-  const duree = !navigator.onLine ? 600 : Math.min(3000, Math.max(500, 2400 / Math.max(mbps, 0.3)));
-  const t0 = Date.now();
-  const it = setInterval(() => {
-    const p = Math.min(1, (Date.now() - t0) / duree);
-    fill.style.width = (p * 100).toFixed(0) + '%';
-    if (p >= 1) { clearInterval(it); el.classList.add('off'); setTimeout(()=>el.remove(), 400); }
-  }, 60);
+  if (!el) return;
+  const fin = () => { el.classList.add('off'); setTimeout(()=>el.remove(), 400); };
+  try {
+    const fill = document.getElementById('sp-fill');
+    const net  = document.getElementById('sp-net');
+    const c = navigator.connection || {};
+    const mbps = Number(c.downlink) || 0;
+    net.textContent = !navigator.onLine ? 'Hors ligne — mode local'
+                    : (mbps ? mbps.toFixed(1) + ' Mb/s' : 'Prêt');
+    const duree = !navigator.onLine ? 600 : Math.min(2500, Math.max(500, 2000 / Math.max(mbps, 0.3)));
+    const t0 = Date.now();
+    const it = setInterval(() => {
+      const p = Math.min(1, (Date.now() - t0) / duree);
+      fill.style.width = (p * 100).toFixed(0) + '%';
+      if (p >= 1) { clearInterval(it); fin(); }
+    }, 60);
+  } catch(e) { fin(); }
+  setTimeout(fin, 4000);   // filet de sécurité absolu
 })();
 </script>
 </body>
