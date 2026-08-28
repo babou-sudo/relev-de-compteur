@@ -1,6 +1,6 @@
 /* Service worker : rend l'appli utilisable sans réseau.
    À chaque modification de index.html, incrémente VERSION pour forcer la mise à jour. */
-const VERSION = 'v6';
+const VERSION = 'v7';
 const SHELL = [
   './', './index.html', './manifest.json', './icon-192.png', './icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js'
